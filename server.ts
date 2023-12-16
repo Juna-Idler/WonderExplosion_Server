@@ -7,7 +7,7 @@ import * as mechanics from "./game/mechanics"
 
 import {CardData,get_card_data} from "./game/card_list"
 
-const PORT : number = 14740;
+const PORT : number = Number(process.env.PORT) ||  14740;
 
 const wss = new ws.Server({ port:PORT });
 
