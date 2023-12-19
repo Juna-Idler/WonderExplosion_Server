@@ -214,7 +214,7 @@ wss.on('connection', (ws,req) => {
                 if (wait.has(data.k))
                 {
                     const waiter = wait.get(data.k) as ClientData;
-                    console.log("Match:" + waiter.name + "&" + comer.name);
+                    console.log("Match:" + data.k + " " + waiter.name + " & " + comer.name);
                     const room = new GameRoom(waiter,comer);
                     if (room.initialized)
                     {
@@ -224,7 +224,10 @@ wss.on('connection', (ws,req) => {
                     }
                 }
                 else
+                {
+                    console.log("Wait:" + data.k + " " + comer.name);
                     wait.set(data.k,comer);
+                }
             }
             break;
         case "MatchCancel":

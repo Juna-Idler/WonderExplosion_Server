@@ -136,13 +136,13 @@ class GameRoom {
         this.player2.socket.send(JSON.stringify({ type: "End", data: { "msg": "server error" } }));
     }
 }
-let wait;
+const wait = new Map();
 const match_users = new Map(); //
 wss.on('connection', (ws, req) => {
     //    req.url
     console.log("connect:");
     ws.on('message', (json, isBinary) => {
-        var _a, _b;
+        var _a, _b, _c;
         const msg = JSON.parse(json.toString());
         console.log(msg.type);
         switch (msg.type) {
@@ -152,33 +152,39 @@ wss.on('connection', (ws, req) => {
             case "Match":
                 {
                     const data = msg.data;
-                    const client = new ClientData(ws, data.n, data.d, data.c[0], data.c[1]);
-                    if (wait != null) {
-                        console.log("Match:" + wait.name + "&" + client.name);
-                        const room = new GameRoom(wait, client);
+                    const comer = new ClientData(ws, data.n, data.d, data.c[0], data.c[1]);
+                    if (wait.has(data.k)) {
+                        const waiter = wait.get(data.k);
+                        console.log("Match:" + data.k + " " + waiter.name + " & " + comer.name);
+                        const room = new GameRoom(waiter, comer);
                         if (room.initialized) {
-                            match_users.set(wait.socket, room);
-                            match_users.set(client.socket, room);
-                            wait = null;
+                            match_users.set(waiter.socket, room);
+                            match_users.set(comer.socket, room);
+                            wait.delete(data.k);
                         }
                     }
-                    else
-                        wait = client;
+                    else {
+                        console.log("Wait:" + data.k + " " + comer.name);
+                        wait.set(data.k, comer);
+                    }
                 }
                 break;
             case "MatchCancel":
-                if (wait != null && ws == wait.socket)
-                    wait = null;
+                {
+                    const data = msg.data;
+                    if (ws == ((_a = wait.get(data.k)) === null || _a === void 0 ? void 0 : _a.socket))
+                        wait.delete(data.k);
+                }
                 break;
             case "Ready":
                 if (match_users.has(ws))
-                    (_a = match_users.get(ws)) === null || _a === void 0 ? void 0 : _a.receive_ready(ws);
+                    (_b = match_users.get(ws)) === null || _b === void 0 ? void 0 : _b.receive_ready(ws);
                 break;
             case "Play":
                 {
                     const data = msg.data;
                     if (match_users.has(ws))
-                        (_b = match_users.get(ws)) === null || _b === void 0 ? void 0 : _b.receive_play(ws, data.i, data.p);
+                        (_c = match_users.get(ws)) === null || _c === void 0 ? void 0 : _c.receive_play(ws, data.i, data.p);
                 }
                 break;
             case "End":
@@ -190,8 +196,6 @@ wss.on('connection', (ws, req) => {
                         match_users.delete(room.player2.socket);
                     }
                 }
-                else if (wait != null && wait.socket == ws)
-                    wait = null;
                 break;
         }
     });
@@ -205,7 +209,12 @@ wss.on('connection', (ws, req) => {
                 match_users.delete(room.player2.socket);
             }
         }
-        else if (wait != null && wait.socket == ws)
-            wait = null;
+        else {
+            for (const [key, value] of wait.entries()) {
+                if (ws == value.socket)
+                    wait.delete(key);
+                break;
+            }
+        }
     });
 });
