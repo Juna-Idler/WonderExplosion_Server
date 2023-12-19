@@ -168,7 +168,15 @@ type match_command = {
     data:{
         n: string,
         d: number[],
-        c: string[]
+        c: string[],
+        k: string
+    }
+};
+
+type match_cancel_command = {
+    type: string,
+    data:{
+        k:string
     }
 };
 
@@ -181,7 +189,7 @@ type play_command = {
 };
 
 
-let wait : ClientData | null
+const wait = new Map<string,ClientData>();
 const match_users = new Map<ws.WebSocket,GameRoom>() //
 
 
@@ -191,6 +199,7 @@ wss.on('connection', (ws,req) => {
     console.log("connect:");
     ws.on('message', (json,isBinary) => {
         const msg = JSON.parse(json.toString());
+        console.log(msg.type);
         switch (msg.type)
         {
         case "Version":
@@ -200,21 +209,29 @@ wss.on('connection', (ws,req) => {
         case "Match":
             {
                 const data = (msg as match_command).data;
-                const client = new ClientData(ws,data.n,data.d,data.c[0],data.c[1]);
+                const comer = new ClientData(ws,data.n,data.d,data.c[0],data.c[1]);
             
-                if (wait != null)
+                if (wait.has(data.k))
                 {
-                    console.log("Match:" + ws + "&" + wait.socket);
-                    const room = new GameRoom(wait,client);
+                    const waiter = wait.get(data.k) as ClientData;
+                    console.log("Match:" + waiter.name + "&" + comer.name);
+                    const room = new GameRoom(waiter,comer);
                     if (room.initialized)
                     {
-                        match_users.set(wait.socket,room);
-                        match_users.set(client.socket,room);
-                        wait = null
+                        match_users.set(waiter.socket,room);
+                        match_users.set(comer.socket,room);
+                        wait.delete(data.k);
                     }
                 }
                 else
-                    wait = client
+                    wait.set(data.k,comer);
+            }
+            break;
+        case "MatchCancel":
+            {
+                const data = (msg as match_cancel_command).data;
+                if (ws == wait.get(data.k)?.socket)
+                    wait.delete(data.k);
             }
             break;
 
@@ -242,8 +259,6 @@ wss.on('connection', (ws,req) => {
                     match_users.delete(room.player2.socket);
                 }
             }
-			else if (wait != null && wait.socket == ws)
-				wait = null;
             break;
         }
     });
@@ -260,7 +275,14 @@ wss.on('connection', (ws,req) => {
                 match_users.delete(room.player2.socket);
             }
         }
-        else if (wait != null && wait.socket == ws)
-            wait = null;
+        else
+        {
+            for (const [key,value] of wait.entries())
+            {
+                if (ws == value.socket)
+                    wait.delete(key);
+                    break;
+            }
+        }
     });
 });

@@ -26,7 +26,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const ws = __importStar(require("ws"));
 const mechanics = __importStar(require("./game/mechanics"));
 const card_list_1 = require("./game/card_list");
-const PORT = 14740;
+const PORT = Number(process.env.PORT) || 14740;
 const wss = new ws.Server({ port: PORT });
 var _version = "0.0";
 class ClientData {
@@ -144,6 +144,7 @@ wss.on('connection', (ws, req) => {
     ws.on('message', (json, isBinary) => {
         var _a, _b;
         const msg = JSON.parse(json.toString());
+        console.log(msg.type);
         switch (msg.type) {
             case "Version":
                 ws.send(JSON.stringify({ type: "Version", data: { version: _version } }));
@@ -153,7 +154,7 @@ wss.on('connection', (ws, req) => {
                     const data = msg.data;
                     const client = new ClientData(ws, data.n, data.d, data.c[0], data.c[1]);
                     if (wait != null) {
-                        console.log("Match:" + ws + "&" + wait.socket);
+                        console.log("Match:" + wait.name + "&" + client.name);
                         const room = new GameRoom(wait, client);
                         if (room.initialized) {
                             match_users.set(wait.socket, room);
@@ -164,6 +165,10 @@ wss.on('connection', (ws, req) => {
                     else
                         wait = client;
                 }
+                break;
+            case "MatchCancel":
+                if (wait != null && ws == wait.socket)
+                    wait = null;
                 break;
             case "Ready":
                 if (match_users.has(ws))
